@@ -207,6 +207,34 @@ function setServiceMessagesEnabled(chatId, enabled) {
         .run(enabled ? 1 : 0, chatId);
 }
 
+function findBirthdayGroups() {
+    return db
+        .prepare(`
+            SELECT *
+            FROM groups
+            WHERE is_active = 1
+              AND birthday_timezone IS NOT NULL
+              AND private_chat_id IS NOT NULL
+        `)
+        .all();
+}
+
+function setBirthdayLastRunDate(
+    groupId,
+    date
+) {
+    return db
+        .prepare(`
+            UPDATE groups
+            SET birthday_last_run_date = ?
+            WHERE chat_id = ?
+        `)
+        .run(
+            date,
+            groupId
+        );
+}
+
 module.exports = {
     findByChatId,
     findByOwnerId,
@@ -223,5 +251,7 @@ module.exports = {
     setWelcomeLeaveEnabled,
     setWelcomeLeaveTemplate,
     getWelcomeSettings,
-    setServiceMessagesEnabled
+    setServiceMessagesEnabled,
+    findBirthdayGroups,
+    setBirthdayLastRunDate
 };

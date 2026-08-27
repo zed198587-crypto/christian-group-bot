@@ -10,6 +10,9 @@ const {
     registerCallbacks
 } = require('./handlers/callbacks');
 
+const {
+    startBirthdayScheduler
+} = require('./services/birthdayScheduler');
 
 require('./database/db');
 
@@ -18,7 +21,6 @@ const bot = new Bot(config.botToken);
 registerCommands(bot);
 registerCallbacks(bot);
 registerChatMemberHandler(bot);
-
 
 
 bot.startPolling(null, {
@@ -31,3 +33,5 @@ bot.startPolling(null, {
 });
 
 console.log('Бот запущен');
+
+startBirthdayScheduler(bot);

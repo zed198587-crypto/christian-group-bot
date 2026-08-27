@@ -16,6 +16,7 @@ async function sendBirthdayMenu(
     groupId,
     messagePrefix = ''
 ) {
+    
     const birthday =
         birthdayRepository.findByUserAndGroup(
             userId,
@@ -82,63 +83,6 @@ async function sendBirthdayMenu(
         // ДЕНЬ РОЖДЕНИЯ
         // =========================
         
-        if (data === 'birthday_name_yes') {
-
-            await ctx.answerCallbackQuery();
-
-            const session =
-                sessionRepository.findSession(
-                    ctx.chat.id,
-                    ctx.from.id,
-                    'birthday'
-                );
-
-            if (!session) {
-                await bot.api.editMessageText({
-                    chat_id: ctx.chat.id,
-                    message_id:
-                        ctx.callbackQuery.message.message_id,
-                    text: '⚠️ Сессия регистрации не найдена.'
-                });
-
-                return;
-            }
-
-            const firstName =
-                ctx.from.first_name || '';
-
-            const lastName =
-                ctx.from.last_name || '';
-
-            const displayName =
-                `${firstName} ${lastName}`.trim();
-
-            birthdayRepository.create(
-                ctx.from.id,
-                session.group_id,
-                displayName
-            );
-
-            sessionRepository.updateState(
-                ctx.chat.id,
-                ctx.from.id,
-                'birthday',
-                'date'
-            );
-
-            await bot.api.editMessageText({
-                chat_id: ctx.chat.id,
-                message_id:
-                    ctx.callbackQuery.message.message_id,
-                text:
-                    '📅 Введите дату рождения в формате ДД.ММ.\n\n' +
-                    'Для чисел от 1 до 9 используйте ведущий ноль: ' +
-                    '01.03, 07.11 и т. п.'
-            });
-
-            return;
-        }
-
         if (data.startsWith('birthday_edit_name:')) {
 
             await ctx.answerCallbackQuery();
@@ -231,7 +175,6 @@ async function sendBirthdayMenu(
             return;
         }
 
-
         if (data.startsWith('birthday_delete:')) {
 
             await ctx.answerCallbackQuery();
@@ -256,24 +199,6 @@ async function sendBirthdayMenu(
                     ctx.callbackQuery.message.message_id,
                 text:
                     '✅ Поздравление с днём рождения отключено.'
-            });
-
-            return;
-        }
-
-        if (data === 'birthday_cancel') {
-
-            await ctx.answerCallbackQuery();
-
-            sessionRepository.clearSession(
-                ctx.chat.id,
-                ctx.from.id,
-                'birthday'
-            );
-
-            await bot.api.deleteMessage({
-                chat_id: ctx.chat.id,
-                message_id: ctx.callbackQuery.message.message_id
             });
 
             return;

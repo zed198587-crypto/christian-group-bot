@@ -77,7 +77,6 @@ function registerCommands(bot) {
         }
 
         const text = ctx.message?.text || '';
-
         const parts = text.trim().split(/\s+/);
         const parameter = parts[1];
 
@@ -128,7 +127,7 @@ function registerCommands(bot) {
 
             return;
         }
-
+        
         // Переход в регистрацию дня рождения
         if (
             parameter &&
@@ -142,6 +141,7 @@ function registerCommands(bot) {
                 birthdayRequestRepository.findByRequestId(
                     requestId
                 );
+
 
             if (!request) {
                 await ctx.reply(
@@ -215,8 +215,7 @@ function registerCommands(bot) {
             );
 
             await sendBirthdayMenu(
-                bot,
-                ctx.chat.id,
+                ctx,
                 userId,
                 groupId
             );
@@ -960,11 +959,7 @@ function registerCommands(bot) {
             return;
         }
     });
-
-    
 }
-
-
 
 module.exports = {
     registerCommands

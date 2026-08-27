@@ -30,6 +30,20 @@ if (!columns.includes('is_selected')) {
     `);
 }
 
+if (!columns.includes('birthday_timezone')) {
+    db.exec(`
+        ALTER TABLE groups
+        ADD COLUMN birthday_timezone TEXT NOT NULL DEFAULT 'Asia/Tashkent'
+    `);
+}
+
+if (!columns.includes('birthday_last_run_date')) {
+    db.exec(`
+        ALTER TABLE groups
+        ADD COLUMN birthday_last_run_date TEXT
+    `);
+}
+
 const birthdayColumns = db
     .prepare('PRAGMA table_info(birthdays)')
     .all()
@@ -41,6 +55,34 @@ if (!birthdayColumns.includes('display_name')) {
         ADD COLUMN display_name TEXT
     `);
 }
+
+if (!birthdayColumns.includes('last_congratulated_date')) {
+    db.exec(`
+        ALTER TABLE birthdays
+        ADD COLUMN last_congratulated_date TEXT
+    `);
+}
+
+const birthdayGroupColumns = db
+    .prepare('PRAGMA table_info(groups)')
+    .all()
+    .map(column => column.name);
+
+if (!birthdayGroupColumns.includes('birthday_timezone')) {
+    db.exec(`
+        ALTER TABLE groups
+        ADD COLUMN birthday_timezone TEXT NOT NULL DEFAULT 'Asia/Tashkent'
+    `);
+}
+
+if (!birthdayGroupColumns.includes('birthday_last_run_date')) {
+    db.exec(`
+        ALTER TABLE groups
+        ADD COLUMN birthday_last_run_date TEXT
+    `);
+}
+
+
 
 console.log('База данных подключена');
 

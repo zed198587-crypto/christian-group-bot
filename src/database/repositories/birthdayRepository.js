@@ -70,6 +70,44 @@ function updateBirthDate(
         );
 }
 
+function findByBirthDate(
+    birthDate,
+    todayDate
+) {
+    return db
+        .prepare(`
+            SELECT *
+            FROM birthdays
+            WHERE birth_date = ?
+              AND (
+                  last_congratulated_date IS NULL
+                  OR last_congratulated_date != ?
+              )
+        `)
+        .all(
+            birthDate,
+            todayDate
+        );
+}
+
+function markCongratulated(
+    id,
+    date
+) {
+    return db
+        .prepare(`
+            UPDATE birthdays
+            SET
+                last_congratulated_date = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `)
+        .run(
+            date,
+            id
+        );
+}
+
 function deleteByUserAndGroup(userId, groupId) {
     return db
         .prepare(`
@@ -88,5 +126,7 @@ module.exports = {
     create,
     updateDisplayName,
     updateBirthDate,
+    findByBirthDate,
+    markCongratulated,
     deleteByUserAndGroup
 };
