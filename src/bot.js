@@ -13,7 +13,6 @@ const {
 
 require('./database/db');
 
-
 const bot = new Bot(config.botToken);
 
 registerCommands(bot);

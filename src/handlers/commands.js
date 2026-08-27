@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const {
     prepareSettings,
     getSelectedGroup,
@@ -18,6 +19,16 @@ const sessionRepository =
 
 const groupRepository =
     require('../database/repositories/groupRepository');
+
+const birthdayRequestRepository =
+    require('../database/repositories/birthdayRequestRepository');    
+
+const birthdayRepository =
+    require('../database/repositories/birthdayRepository');
+
+const {
+    sendBirthdayMenu
+} = require('./callbacks');
 
 function isPrivateChat(ctx) {
     return ctx.chat?.type === 'private';
@@ -60,51 +71,56 @@ function isServiceMessage(message) {
 function registerCommands(bot) {
 
     bot.command('start', async (ctx) => {
+
         if (!isPrivateChat(ctx)) {
             return;
         }
 
-        await ctx.reply(
-            'Привет! Я бот-администратор христианских групп.'
-        );
-    });
+        const text = ctx.message?.text || '';
 
-    bot.command('settings', async (ctx) => {
-        if (!isPrivateChat(ctx)) {
-            return;
-        }
+        const parts = text.trim().split(/\s+/);
+        const parameter = parts[1];
 
-        const userId = ctx.from.id;
-        const privateChatId = ctx.chat.id;
+        // Переход в настройки конкретной группы
+        if (
+            parameter &&
+            parameter.startsWith('settings_')
+        ) {
 
-        const {
-            groups,
-            selectedGroup
-        } = prepareSettings(
-            userId,
-            privateChatId
-        );
+            const groupId =
+                parameter.substring('settings_'.length);
 
-        if (groups.length === 0) {
-            await ctx.reply(
-                'У вас нет групп, которыми вы можете управлять.'
-            );
+            const group =
+                groupRepository.findByChatId(groupId);
 
-            return;
-        }
+            if (!group) {
+                await ctx.reply(
+                    '❌ Группа не найдена.'
+                );
 
-        if (selectedGroup) {
+                return;
+            }
 
+            // Проверяем, что пользователь действительно создатель
+            if (ctx.from.id !== group.owner_id) {
+                await ctx.reply(
+                    '⛔ У вас нет прав для управления этой группой.'
+                );
+
+                return;
+            }
+
+            // Создаём сессию непосредственно для этой группы
             sessionRepository.saveSession(
-                privateChatId,
-                userId,
-                selectedGroup.chat_id,
+                ctx.chat.id,
+                ctx.from.id,
+                group.chat_id,
                 'settings',
                 'main'
             );
 
             await ctx.reply(
-                `⚙️ Главное меню\nГруппа «${selectedGroup.title}»`,
+                `⚙️ Главное меню\nГруппа «${group.title}»`,
                 {
                     reply_markup: mainSettingsKeyboard()
                 }
@@ -113,34 +129,259 @@ function registerCommands(bot) {
             return;
         }
 
+        // Переход в регистрацию дня рождения
+        if (
+            parameter &&
+            parameter.startsWith('birthday_')
+        ) {
+
+            const requestId =
+                parameter.substring('birthday_'.length);
+
+            const request =
+                birthdayRequestRepository.findByRequestId(
+                    requestId
+                );
+
+            if (!request) {
+                await ctx.reply(
+                    '⚠️ Запрос на регистрацию дня рождения не найден или уже устарел.'
+                );
+
+                return;
+            }
+
+            const userId = ctx.from.id;
+            const groupId = request.group_id;
+
+            // Проверяем, есть ли запись
+            let birthday =
+                birthdayRepository.findByUserAndGroup(
+                    userId,
+                    groupId
+                );
+
+            // Если записи нет — создаём сразу
+            if (!birthday) {
+
+                const firstName =
+                    ctx.from.first_name || '';
+
+                const lastName =
+                    ctx.from.last_name || '';
+
+                const displayName =
+                    `${firstName} ${lastName}`.trim();
+
+                birthdayRepository.create(
+                    userId,
+                    groupId,
+                    displayName
+                );
+
+                // Получаем созданную запись
+                birthday =
+                    birthdayRepository.findByUserAndGroup(
+                        userId,
+                        groupId
+                    );
+            }
+
+            // Открываем сессию
+            sessionRepository.saveSession(
+                ctx.chat.id,
+                userId,
+                groupId,
+                'birthday',
+                'main'
+            );
+
+            // Удаляем сообщение с кнопкой из группы
+            try {
+                await bot.api.deleteMessage({
+                    chat_id: groupId,
+                    message_id: request.message_id
+                });
+            } catch (error) {
+                console.error(
+                    'Ошибка удаления сообщения birthday:',
+                    error
+                );
+            }
+
+            // Использованный запрос больше не нужен
+            birthdayRequestRepository.deleteByRequestId(
+                requestId
+            );
+
+            await sendBirthdayMenu(
+                bot,
+                ctx.chat.id,
+                userId,
+                groupId
+            );
+
+            return;
+        }
+
+        // Обычный /start
+        await ctx.reply(
+            'Привет! Я бот-администратор христианских групп.'
+        );
+    });
+
+    bot.command('settings', async (ctx) => {
+
+        // /settings работает только в группе
+        if (
+            ctx.chat?.type !== 'group' &&
+            ctx.chat?.type !== 'supergroup'
+        ) {
+            await ctx.reply(
+                '⛔ Запустите команду /settings в группе, которую хотите настроить.'
+            );
+
+            return;
+        }
+
+        const userId = ctx.from.id;
+        const groupId = ctx.chat.id;
+
+        // Удаляем сообщение /settings из группы
+        try {
+            await bot.api.deleteMessage({
+                chat_id: groupId,
+                message_id: ctx.message.message_id
+            });
+        } catch (error) {
+            console.error(
+                'Ошибка удаления команды /settings:',
+                error
+            );
+        }
+
+        // Ищем зарегистрированную группу
+        const group =
+            groupRepository.findByChatId(groupId);
+
+        if (!group) {
+
+            await bot.api.sendMessage({
+                chat_id: userId,
+                text: 'Эта группа не зарегистрирована в боте.'
+            });
+
+            return;
+        }
+
+        // Проверяем создателя
+        if (userId !== group.owner_id) {
+            return;
+        }
+
+        // Сессию создаём ТОЛЬКО для создателя
         sessionRepository.saveSession(
-            privateChatId,
             userId,
-            null,
+            userId,
+            group.chat_id,
             'settings',
-            'selecting_group'
+            'main'
         );
 
-        await ctx.reply(
-            'Выберите группу для настройки:',
+        // Главное меню отправляем в личный чат
+        await bot.api.sendMessage({
+            chat_id: userId,
+            text:
+                `⚙️ Главное меню\n` +
+                `Группа «${group.title}»`,
+            reply_markup: mainSettingsKeyboard()
+        });
+    });
+
+    bot.command('birthday', async (ctx) => {
+
+        // /birthday работает только в группе
+        if (
+            ctx.chat?.type !== 'group' &&
+            ctx.chat?.type !== 'supergroup'
+        ) {
+            await ctx.reply(
+                '⛔ Команда /birthday доступна только в группе.'
+            );
+
+            return;
+        }
+
+        const groupId = ctx.chat.id;
+
+        // Удаляем команду /birthday
+        try {
+            await bot.api.deleteMessage({
+                chat_id: groupId,
+                message_id: ctx.message.message_id
+            });
+        } catch (error) {
+            console.error(
+                'Ошибка удаления команды /birthday:',
+                error
+            );
+        }
+
+        // Создаём уникальный идентификатор запроса
+        const requestId =
+            crypto.randomBytes(6).toString('base64url');
+
+        // Ссылка на регистрацию
+        const startParameter =
+            `birthday_${requestId}`;
+
+        const botUsername =
+            'christian_group_admin_bot';
+
+        const message = await ctx.reply(
+            '🎂 Регистрация дня рождения',
             {
                 reply_markup: {
-                    inline_keyboard: groupsKeyboard(groups)
+                    inline_keyboard: [
+                        [
+                            {
+                                text: '🎂 Открыть регистрацию',
+                                url:
+                                    `https://t.me/${botUsername}` +
+                                    `?start=${startParameter}`
+                            }
+                        ]
+                    ]
                 }
             }
+        );
+
+        // Сохраняем контекст запроса
+        birthdayRequestRepository.create(
+            requestId,
+            groupId,
+            message.message_id
+        );
+
+        console.log(
+            'Birthday request:',
+            requestId,
+            groupId,
+            message.message_id
         );
     });
 
     bot.on('message', async (ctx) => {
 
         const message = ctx.message;
+
         const text = message?.text;
 
         const session = sessionRepository.findSettingsSession(
             ctx.chat.id,
             ctx.from.id
         );
-
+        
         if (text === '◀️ Назад') {
 
             const context = getSettingsContext(
@@ -290,7 +531,99 @@ function registerCommands(bot) {
             return;
         }
 
+        const birthdaySession =
+            sessionRepository.findSession(
+                ctx.chat.id,
+                ctx.from.id,
+                'birthday'
+            );
 
+        if (
+            birthdaySession &&
+            birthdaySession.state === 'edit_name'
+        ) {
+
+            const displayName =
+                (text || '').trim();
+
+            if (!displayName) {
+                await ctx.reply(
+                    '⚠️ Пожалуйста, введите ваше Имя и Фамилию.'
+                );
+
+                return;
+            }
+
+            birthdayRepository.updateDisplayName(
+                ctx.from.id,
+                birthdaySession.group_id,
+                displayName
+            );
+
+            const groupId =
+                birthdaySession.group_id;
+
+            sessionRepository.clearSession(
+                ctx.chat.id,
+                ctx.from.id,
+                'birthday'
+            );
+
+            await sendBirthdayMenu(
+                ctx,
+                ctx.from.id,
+                groupId,
+                '✅ Сохранено\n\n'
+            );
+
+            return;
+        }
+
+        if (
+            birthdaySession &&
+            birthdaySession.state === 'edit_date'
+        ) {
+
+            const birthDate =
+                (text || '').trim();
+
+            const datePattern =
+                /^(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])$/;
+
+            if (!datePattern.test(birthDate)) {
+                await ctx.reply(
+                    '⚠️ Неверный формат даты.\n\n' +
+                    'Введите дату в формате ДД.ММ.\n' +
+                    'Например: 05.03 или 17.11.'
+                );
+
+                return;
+            }
+
+            birthdayRepository.updateBirthDate(
+                ctx.from.id,
+                birthdaySession.group_id,
+                birthDate
+            );
+
+            const groupId =
+                birthdaySession.group_id;
+
+            sessionRepository.clearSession(
+                ctx.chat.id,
+                ctx.from.id,
+                'birthday'
+            );
+
+            await sendBirthdayMenu(
+                ctx,
+                ctx.from.id,
+                groupId,
+                '✅ Сохранено\n\n'
+            );
+
+            return;
+        }
 
         if (
             session &&
@@ -627,7 +960,11 @@ function registerCommands(bot) {
             return;
         }
     });
+
+    
 }
+
+
 
 module.exports = {
     registerCommands

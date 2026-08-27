@@ -30,6 +30,18 @@ if (!columns.includes('is_selected')) {
     `);
 }
 
+const birthdayColumns = db
+    .prepare('PRAGMA table_info(birthdays)')
+    .all()
+    .map(column => column.name);
+
+if (!birthdayColumns.includes('display_name')) {
+    db.exec(`
+        ALTER TABLE birthdays
+        ADD COLUMN display_name TEXT
+    `);
+}
+
 console.log('База данных подключена');
 
 module.exports = db;
