@@ -14,10 +14,15 @@ const {
     startBirthdayScheduler
 } = require('./services/birthdayScheduler');
 
+const {
+    registerQuiz
+} = require('./quiz/registerQuiz');
+
 require('./database/db');
 
 const bot = new Bot(config.botToken);
 
+registerQuiz(bot);
 registerCommands(bot);
 registerCallbacks(bot);
 registerChatMemberHandler(bot);
