@@ -30,7 +30,7 @@ function createAnswerMask(answer, revealedPositions) {
             }
 
             if (revealedPositions.has(index)) {
-                return char;
+                return `${char}  `;
             }
 
             return config.hiddenAnswerSymbol;

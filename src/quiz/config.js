@@ -13,9 +13,9 @@ module.exports = {
     pauseBetweenQuestions: 2,
 
     // Тексты
-    title: '=== ВИКТОРИНА ===',
+    title: '<b><code>=== ВИКТОРИНА ===</code></b>',
     roundStarted: 'Раунд начат',
-    questionTitle: 'Вопрос',
+    questionTitle: '❓ <b>Вопрос</b>',
     correctAnswer: '✅ Правильно!',
     answerTime: 'Время',
     pointsReceived: 'Баллы',
@@ -25,9 +25,12 @@ module.exports = {
     quizAlreadyStarted: 'Викторина уже запущена',
     nextQuestion: 'Следующий вопрос',
     quizStoppedByInactivity: '⏹ Викторина остановлена из-за отсутствия активности.',
+    emptyRoundResult: 'Сегодня никто не выиграл',
+    quizInfo: '10 вопросов, 2 подсказки и 1 минута на каждый вопрос. '+
+    'Для преждевременной остановки игры введите команду /stopquiz.',
 
     // Символы
-    hiddenAnswerSymbol: '#',
+    hiddenAnswerSymbol: '__  ',
     progressFilledSymbol: '*',
     progressEmptySymbol: '-',
 

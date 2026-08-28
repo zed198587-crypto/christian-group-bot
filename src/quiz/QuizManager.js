@@ -26,9 +26,7 @@ class QuizManager {
 
     async startQuiz(ctx) {
         const chatId = ctx.chatId;
-
-        console.log(`Starting quiz ${chatId}, session exists: ${this.has(chatId)}`);
-       
+      
         if (this.has(chatId)) {
             await ctx.reply(config.quizAlreadyStarted);
             return this.get(chatId);
@@ -47,9 +45,7 @@ class QuizManager {
         this.add(chatId, session);
 
         session.finished.then(() => {
-            console.log(`Removing session ${chatId}`);
             this.remove(chatId);
-            console.log(`Session exists: ${this.has(chatId)}`);
         });
 
         session.start();

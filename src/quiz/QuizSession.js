@@ -32,6 +32,12 @@ class QuizSession {
         this.status = status;
     }
 
+    async reply(text) {
+        return this.ctx.reply(text, {
+            parse_mode: 'HTML'
+        });
+    }
+
     normalizeAnswer(answer) {
         return answer
             .trim()
@@ -51,8 +57,8 @@ class QuizSession {
 
     createQuestionText(question, answerMask = null, progressBar = null) {
         let text =
-            `${config.questionTitle} ${this.currentQuestionIndex + 1} из ${this.questions.length}\n` +
-            `${question.text}`;
+            `<b>${config.questionTitle} ${this.currentQuestionIndex + 1} из ${this.questions.length}</b>\n` +
+            `<i>${question.text}</i>`;
 
         if (answerMask !== null) {
             text += `\n\n${answerMask}`;
@@ -81,7 +87,10 @@ class QuizSession {
     async start() {
         this.setStatus('ACTIVE');
 
-        await this.ctx.reply(config.title);
+        await this.reply(
+            `${config.title}\n\n` +
+            `${config.quizInfo}`
+        );
 
         await new Promise(resolve => {
             const timer = setTimeout(resolve, config.introDelay * 1000);
@@ -92,7 +101,7 @@ class QuizSession {
             return;
         }
 
-        await this.ctx.reply(config.roundStarted);
+        await this.reply(config.roundStarted);
 
         await new Promise(resolve => {
             const timer = setTimeout(resolve, config.roundStartDelay * 1000);
@@ -130,7 +139,7 @@ class QuizSession {
             progressBar
         );
 
-        await this.ctx.reply(text);
+        await this.reply(text);
 
         const timer = setTimeout(() => {
             this.showHint(1);
@@ -166,7 +175,7 @@ class QuizSession {
             progressBar
         );
 
-        await this.ctx.reply(text);
+        await this.reply(text);
 
         if (this.status !== 'ANSWERING') {
             return;
@@ -239,10 +248,6 @@ class QuizSession {
             ? config.points.full
             : config.points[`hint${this.currentHint}`];
         
-        console.log(
-    `CORRECT: user=${ctx.from.id}, question=${this.currentQuestionIndex + 1}, points=${points}`
-);
-        
             const userId = ctx.from.id;
 
         const currentScore = this.roundScores.get(userId) || {
@@ -259,10 +264,6 @@ class QuizSession {
         currentScore.elapsedSeconds = elapsedSeconds;
 
         this.roundScores.set(userId, currentScore);
-
- console.log(
-        `GLOBAL ADD: user=${userId}, points=${points}`
-    );
 
         await playerRepository.addPoints(
             userId,
@@ -344,12 +345,6 @@ class QuizSession {
             this.inactiveQuestions++;
         }
 
-        console.log(
-    `Question ${this.currentQuestionIndex + 1}: ` +
-    `wasActive=${this.wasActive}, ` +
-    `inactiveQuestions=${this.inactiveQuestions}`
-);
-
         const question = this.questions[this.currentQuestionIndex];
 
         await this.ctx.reply(
@@ -379,6 +374,13 @@ class QuizSession {
         
         const results = [...this.roundScores.values()]
             .sort((a, b) => b.points - a.points);
+
+        if (results.length === 0) {
+            await this.ctx.reply(config.emptyRoundResult);
+            this.stop();
+            return;
+        }
+
 
         let text = '🏆 Результаты раунда\n\n';
 
